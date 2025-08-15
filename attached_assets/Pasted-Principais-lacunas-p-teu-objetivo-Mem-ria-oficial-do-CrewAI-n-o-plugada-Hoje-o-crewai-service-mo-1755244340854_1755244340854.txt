@@ -1,0 +1,70 @@
+Principais lacunas p/ teu objetivo
+
+Memória “oficial” do CrewAI não plugada
+Hoje o crewai-service monta contexto de execução e usa Qdrant via service próprio, mas não vi:
+
+CREWAI_STORAGE_DIR nem a ExternalMemory (Mem0 + Qdrant) conectada ao CrewAI.
+Sem isso, você perde short/long/entity memory integrada ao runtime dos agentes.
+
+MCP de verdade ainda não existe
+As integrações via REST ajudam, mas para “MCP robusto” (stdio/SSE/HTTP para tools e context), faltam MCP servers formais: filesystem, knowledge-index, cms.
+
+Pipeline de Knowledge incompleto
+Há upload via multer, porém não achei processamento assíncrono (chunking, embeddings e upsert no Qdrant com metadados de projeto/agente). Falta worker (Redis/BullMQ) e normalização por tipo (PDF, DOCX, MDX, OCR).
+
+Observabilidade
+Não vi Langfuse/Opik integrados. Sem telemetria é difícil medir recall, custo, latência e fazer tuning de prompts e tools.
+
+Segurança/permits
+Uploads caem em uploads/ sem política de sanitização, limites e RBAC. Para sandbox seguro e edição de diretórios, precisamos limitar paths, MIME types e tamanho, além de RBAC (admin/editor/autor).
+
+Processes/Planning nativos
+O serviço sugere agentes/tasks via LLM (legal!), mas não vi uso dos processos nativos do CrewAI (Sequential/Hierarchical/Async) com delegation e planning integrados.
+
+Roadmap de ação (curto prazo)
+
+Memória CrewAI real
+
+Definir CREWAI_STORAGE_DIR (volume no Docker).
+
+Adicionar ExternalMemory (Mem0 + Qdrant) no crewai-service e passar para as execuções/agents. Isso habilita short/long/entity + vetorial centralizado.
+
+MCP Servers
+
+filesystem (list/read/write seguros em /projects e /knowledge).
+
+knowledge-index (ingestão → chunking → embeddings Ollama mxbai-embed-large → Qdrant).
+
+cms (CRUD projects/agents/executions com schemas do Drizzle).
+
+Pipeline de ingestão
+
+Worker (BullMQ/Redis):
+
+Detectar tipo (PDF/DOCX/MD/TXT/CSV/JSON).
+
+Extrair texto (PDF + OCR quando necessário).
+
+Chunking (tamanho/sobreposição configuráveis).
+
+Embeddings (Ollama) e upsert no Qdrant com metadados (projectId, agentId, tags, sourcePath).
+
+Observabilidade
+
+Plugar Langfuse em TODAS as chamadas LLM (antes/depois), e também nos passos do crewai-service (por task).
+
+Dashboards de tempo, custo e qualidade de recall por tipo de tarefa.
+
+Segurança
+
+RBAC simples (admin/editor/autor/visor).
+
+Sanitização de uploads + whitelists de extensões + quotas por projeto.
+
+Limitar filesystem MCP a subárvores específicas (sem path traversal).
+
+Processes/Planning
+
+Reescrever a execução para usar Sequential/Hierarchical nativos com delegation.
+
+Adicionar Flows com estado pra sandbox (permite editar task on-demand e replanejar).
